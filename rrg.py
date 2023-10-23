@@ -71,27 +71,6 @@ def read_and_preprocess_data(filename):
     return prices
 
 
-def calculate_rss_and_momentum(stock_data, stocks):
-    rsss = {}
-    moms = {}
-    momentum_period = 5
-    
-    for column in stocks:
-        if column != 'date':
-            stock_data[f"RS_{column}"] = stock_data[column] / stock_data[BENCHMARK]
-            stock_data[f"EMA10_RS_{column}"] = stock_data[f"RS_{column}"].ewm(span=10, adjust=False).mean()
-            stock_data[f"EMA30_RS_{column}"] = stock_data[f"RS_{column}"].ewm(span=30, adjust=False).mean()
-            stock_data[f"RS_Ratio_{column}"] = (stock_data[f"EMA10_RS_{column}"] / stock_data[f"EMA30_RS_{column}"]) * 100
-            rsss[f"{column}"] = stock_data[f"RS_Ratio_{column}"]
-
-            mom = rsss[f"{column}"].diff(periods=momentum_period) * 100
-            min_val = mom.min()
-            max_val = mom.max()
-            mom = 20 * (mom - min_val) / (max_val - min_val) + 90
-            moms[f"{column}"] = mom
-
-    return rsss, moms
-
 def create_rrg_graph(data_points, start_date, end_date, filename='rrg.png'):
     fig, ax = plt.subplots(figsize=(20, 20))
     ax.set_xlim(90, 110)
@@ -109,14 +88,52 @@ def create_rrg_graph(data_points, start_date, end_date, filename='rrg.png'):
     plt.savefig(filename, dpi=300)
     plt.close()
 
+
+def calculate_rss_and_momentum(stock_data, stocks):
+    rsss = {}
+    moms = {}
+    momentum_period = 5
+    
+    for column in stocks:
+        if column != 'date':
+
+            # This is just relative strength: price of stock / price of benchmark
+            stock_data[f"RS_{column}"] = stock_data[column] / stock_data[BENCHMARK]
+
+            # We have a fast and a slow EMA for smoothing the RS
+            stock_data[f"EMA10_RS_{column}"] = stock_data[f"RS_{column}"].ewm(span=10, adjust=False).mean()
+            stock_data[f"EMA30_RS_{column}"] = stock_data[f"RS_{column}"].ewm(span=30, adjust=False).mean()
+            
+            # This is the smoothing step. Multiplied by 100 so it displays nicely on the graph
+            stock_data[f"RS_Ratio_{column}"] = (stock_data[f"EMA10_RS_{column}"] / stock_data[f"EMA30_RS_{column}"]) * 100
+            rsss[f"{column}"] = stock_data[f"RS_Ratio_{column}"]
+
+
+            # Momentum is simply price now / price some periods ago.
+            mom = rsss[f"{column}"].diff(periods=momentum_period) * 100
+            min_val = mom.min()
+            max_val = mom.max()
+
+            # Normalize the momentum values to 90-110 range
+            mom = 20 * (mom - min_val) / (max_val - min_val) + 90
+            moms[f"{column}"] = mom
+
+    return rsss, moms
+
+
 if __name__ == "__main__":
+
+    # Read the raw input file...
     raw_data = read_and_preprocess_data('/data/output/adjusted_combined.csv')
+    # ... and calculate relative strength (RS) and momentum values
     rss, moms = calculate_rss_and_momentum(raw_data, STOCKS)
 
+    # Merge the data for display
     data = {}
     for stock in STOCKS:
         data[stock] = list(zip(rss[stock], moms[stock]))[-TAIL_LENGTH:]
 
+    # Since we want to show the date range of the graph, extract min and max date from the first element
     min_dt = rss[list(rss.keys())[0]].index[-TAIL_LENGTH]
     max_dt = rss[list(rss.keys())[0]].index[-1]
     create_rrg_graph(data, min_dt, max_dt, 'rrg.png')
