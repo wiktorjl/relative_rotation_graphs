@@ -1,1 +1,12 @@
 This script constructs a relative rotation graph of selected securities against SPX (for example).
+
+Input file format (CSV):
+code,date,exchange_short_name,open,high,low,close,volume,EOD_Sector,EOD_Industry
+AAPL,2023-09-20,US,179.26,179.68,175.4,175.49,55483282.0,Technology,Consumer Electronics
+AAPL,2023-09-19,US,177.52,179.63,177.13,179.07,51826900.0,Technology,Consumer Electronics
+AAPL,2023-09-18,US,176.48,179.38,176.17,177.97,67257600.0,Technology,Consumer Electronics
+
+Output: rrg.png
+
+
+Work in progress
